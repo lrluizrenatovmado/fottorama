@@ -5,6 +5,8 @@ import sys
 from PySide.QtCore import *
 from PySide.QtGui import *
 
+import sqlite3
+
 # Every Qt application must have one and only one QApplication object;
 # it receives the command line arguments passed to the script, as they
 # can be used to customize the application's appearance and behavior
@@ -74,6 +76,13 @@ class Desafio(QWidget):
         self.image = QComboBox(self)
         self.image.addItems(self.images)
 
+        # Get a cursor object
+        cursor = db.cursor()
+        cursor.execute('''SELECT name FROM images WHERE selected = ?''', (1,))
+        image1 = cursor.fetchone()
+
+        self.image.setCurrentIndex(self.image.findText(image1[0]))
+
         # Add it to the form layout with a label
         self.form_layout2.addRow('Select Image:', self.image)
 
@@ -106,13 +115,24 @@ class Desafio(QWidget):
             self.clearLayout(layout)
             layout.deleteLater()
 
+        # Get a cursor object
+        cursor = db.cursor()
+        cursor.execute('''UPDATE images SET selected = ?''', (0,))
+        cursor.execute('''UPDATE images SET selected = ? WHERE name = ?''', (1, self.images[self.image.currentIndex()],))
+        db.commit()
+
         # Create the QVBoxLayout that lays out the whole form
         layout = QVBoxLayout()
 
         # Create the form layout that manages the controls
         self.form_layout = QFormLayout()
 
-        self.pixmap = QPixmap(self.images[self.image.currentIndex()])
+        # Get a cursor object
+        cursor = db.cursor()
+        cursor.execute('''SELECT name FROM images WHERE selected = ?''', (1,))
+        image1 = cursor.fetchone()
+
+        self.pixmap = QPixmap(image1[0])
 
         self.lbl = QLabel(self)
         self.lbl.setPixmap(self.pixmap)
@@ -130,6 +150,45 @@ class Desafio(QWidget):
         layout.addLayout(self.form_layout)
 
         self.layout.insertLayout(0, layout)
+
+    def closeEvent(self, event):
+        db.close()
+        event.accept() # let the window close
+
+# Create a database in RAM
+db = sqlite3.connect(':memory:')
+# Creates or opens a file called mydb with a SQLite3 DB
+db = sqlite3.connect('data/mydb.sqlite')
+
+stmt = "SELECT name FROM sqlite_master WHERE type='table' AND name='images' COLLATE NOCASE"
+cursor = db.cursor()
+cursor.execute(stmt)
+result = cursor.fetchone()
+if not result:
+    # Get a cursor object
+    cursor = db.cursor()
+    cursor.execute('''DROP TABLE IF EXISTS images''')
+    cursor.execute('''
+        CREATE TABLE images(id INTEGER PRIMARY KEY, name TEXT, selected INTEGER)
+    ''')
+
+    name1 = "planet.jpg"
+    name2 = "cat.png"
+    name3 = "building.jpg"
+
+    # Insert image 1
+    cursor.execute('''INSERT INTO images(name, selected)
+                      VALUES(?, ?)''', (name1, 1))
+
+    # Insert image 2
+    cursor.execute('''INSERT INTO images(name, selected)
+                      VALUES(?, ?)''', (name2, 0))
+
+    # Insert image 3
+    cursor.execute('''INSERT INTO images(name, selected)
+                      VALUES(?, ?)''', (name3, 0))
+
+    db.commit()
 
 # Create an instance of the application window and run it
 app = Desafio()
