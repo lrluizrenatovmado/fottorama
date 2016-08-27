@@ -5,7 +5,7 @@ import sys
 from PySide.QtCore import *
 from PySide.QtGui import *
 
-import sqlite3
+import json
 
 # Every Qt application must have one and only one QApplication object;
 # it receives the command line arguments passed to the script, as they
@@ -22,6 +22,8 @@ class Desafio(QWidget):
         QWidget.__init__(self)
         self.setWindowTitle('Show, Image')
         self.setMinimumWidth(400)
+
+        self.parsed_json = json.loads(json_string)
 
         # Create the QVBoxLayout that lays out the whole form
         self.layout = QVBoxLayout()
@@ -76,12 +78,11 @@ class Desafio(QWidget):
         self.image = QComboBox(self)
         self.image.addItems(self.images)
 
-        # Get a cursor object
-        cursor = db.cursor()
-        cursor.execute('''SELECT name FROM images WHERE selected = ?''', (1,))
-        image1 = cursor.fetchone()
+        for key in self.parsed_json:
+            if self.parsed_json[key] == 1:
+                image = key
 
-        self.image.setCurrentIndex(self.image.findText(image1[0]))
+        self.image.setCurrentIndex(self.image.findText(image))
 
         # Add it to the form layout with a label
         self.form_layout2.addRow('Select Image:', self.image)
@@ -115,11 +116,13 @@ class Desafio(QWidget):
             self.clearLayout(layout)
             layout.deleteLater()
 
-        # Get a cursor object
-        cursor = db.cursor()
-        cursor.execute('''UPDATE images SET selected = ?''', (0,))
-        cursor.execute('''UPDATE images SET selected = ? WHERE name = ?''', (1, self.images[self.image.currentIndex()],))
-        db.commit()
+        self.parsed_json['planet.jpg'] = 0
+        self.parsed_json['cat.png'] = 0
+        self.parsed_json['building.jpg'] = 0
+
+        self.parsed_json[self.images[self.image.currentIndex()]] = 1
+
+        json_string = json.dumps(self.parsed_json)
 
         # Create the QVBoxLayout that lays out the whole form
         layout = QVBoxLayout()
@@ -127,12 +130,13 @@ class Desafio(QWidget):
         # Create the form layout that manages the controls
         self.form_layout = QFormLayout()
 
-        # Get a cursor object
-        cursor = db.cursor()
-        cursor.execute('''SELECT name FROM images WHERE selected = ?''', (1,))
-        image1 = cursor.fetchone()
+        self.parsed_json = json.loads(json_string)
 
-        self.pixmap = QPixmap(image1[0])
+        for key in self.parsed_json:
+            if self.parsed_json[key] == 1:
+                image = key
+
+        self.pixmap = QPixmap(image)
 
         self.lbl = QLabel(self)
         self.lbl.setPixmap(self.pixmap)
@@ -151,44 +155,12 @@ class Desafio(QWidget):
 
         self.layout.insertLayout(0, layout)
 
-    def closeEvent(self, event):
-        db.close()
-        event.accept() # let the window close
+d = {}
+d['planet.jpg'] = 1
+d['cat.png'] = 0
+d['building.jpg'] = 0
 
-# Create a database in RAM
-db = sqlite3.connect(':memory:')
-# Creates or opens a file called mydb with a SQLite3 DB
-db = sqlite3.connect('data/mydb.sqlite')
-
-stmt = "SELECT name FROM sqlite_master WHERE type='table' AND name='images' COLLATE NOCASE"
-cursor = db.cursor()
-cursor.execute(stmt)
-result = cursor.fetchone()
-if not result:
-    # Get a cursor object
-    cursor = db.cursor()
-    cursor.execute('''DROP TABLE IF EXISTS images''')
-    cursor.execute('''
-        CREATE TABLE images(id INTEGER PRIMARY KEY, name TEXT, selected INTEGER)
-    ''')
-
-    name1 = "planet.jpg"
-    name2 = "cat.png"
-    name3 = "building.jpg"
-
-    # Insert image 1
-    cursor.execute('''INSERT INTO images(name, selected)
-                      VALUES(?, ?)''', (name1, 1))
-
-    # Insert image 2
-    cursor.execute('''INSERT INTO images(name, selected)
-                      VALUES(?, ?)''', (name2, 0))
-
-    # Insert image 3
-    cursor.execute('''INSERT INTO images(name, selected)
-                      VALUES(?, ?)''', (name3, 0))
-
-    db.commit()
+json_string = json.dumps(d)
 
 # Create an instance of the application window and run it
 app = Desafio()
